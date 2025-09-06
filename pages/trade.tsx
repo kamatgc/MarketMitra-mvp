@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Select from 'react-select'
 import { nifty50Symbols, OptionType } from '../trade_content/nifty50'
 import { isMarketOpen } from '../trade_content/marketUtils'
@@ -21,12 +21,11 @@ export default function Trade() {
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string>('')
 
-  const fetchPriceData = async () => {
+  const fetchPriceData = useCallback(async () => {
     try {
       setLoading(true)
       setError('')
 
-      // Call our own API route to bypass CORS
       const res = await fetch(`/api/quote?symbol=${encodeURIComponent(selectedStock.value)}`)
       if (!res.ok) throw new Error('API request failed')
 
@@ -36,7 +35,7 @@ export default function Trade() {
 
       const meta = result.meta
       const quoteData = result.indicators?.quote?.[0]
-      const timestamps = result.timestamp
+      const timestamps: number[] | undefined = result.timestamp
 
       let openVal: number | undefined
       let closeVal: number | undefined
@@ -47,7 +46,7 @@ export default function Trade() {
         closeVal = quoteData.close?.[lastIndex]
       }
 
-      const priceObj: PriceData = {
+      setPriceData({
         current: meta.regularMarketPrice,
         open: openVal ?? meta.regularMarketOpen ?? 0,
         high: meta.regularMarketDayHigh,
@@ -56,9 +55,7 @@ export default function Trade() {
         week52High: meta.fiftyTwoWeekHigh,
         week52Low: meta.fiftyTwoWeekLow,
         lastUpdated: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
-      }
-
-      setPriceData(priceObj)
+      })
     } catch (e) {
       console.error(e)
       setError('Failed to fetch price data. Please try again.')
@@ -66,19 +63,20 @@ export default function Trade() {
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    fetchPriceData()
-    const interval = setInterval(() => {
-      setMarketOpen(isMarketOpen())
-    }, 60000)
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    fetchPriceData()
   }, [selectedStock])
+
+  useEffect(() => {
+    fetchPriceData()
+    const interval = setInterval(() => setMarketOpen(isMarketOpen()), 60000)
+    return () => clearInterval(interval)
+  }, [fetchPriceData])
+
+  useEffect(() => {
+    fetchPriceData()
+  }, [fetchPriceData])
+
+  const format = (n: number | undefined) =>
+    typeof n === 'number' && !Number.isNaN(n) ? n.toFixed(2) : '—'
 
   return (
     <div className="flex flex-col items-center justify-center p-4">
@@ -103,14 +101,12 @@ export default function Trade() {
         </button>
       </div>
 
-      {error && (
-        <div className="mb-3 text-red-600 text-sm">{error}</div>
-      )}
+      {error && <div className="mb-3 text-red-600 text-sm">{error}</div>}
 
       {priceData && (
         <div className="text-center max-w-md w-full">
           <h2 className="text-xl font-bold">
-            ₹{priceData.current.toFixed(2)}{' '}
+            ₹{format(priceData.current)}{' '}
             {marketOpen ? (
               <span className="text-green-600">LIVE</span>
             ) : (
@@ -125,12 +121,12 @@ export default function Trade() {
           <hr className="my-3" />
 
           <ul className="mt-2 text-sm grid grid-cols-2 gap-y-1">
-            <li><span className="text-gray-500">Open:</span> ₹{priceData.open}</li>
-            <li><span className="text-gray-500">High:</span> ₹{priceData.high}</li>
-            <li><span className="text-gray-500">Low:</span> ₹{priceData.low}</li>
-            <li><span className="text-gray-500">Close:</span> ₹{priceData.close}</li>
-            <li><span className="text-gray-500">52-Week High:</span> ₹{priceData.week52High}</li>
-            <li><span className="text-gray-500">52-Week Low:</span> ₹{priceData.week52Low}</li>
+            <li><span className="text-gray-500">Open:</span> ₹{format(priceData.open)}</li>
+            <li><span className="text-gray-500">High:</span> ₹{format(priceData.high)}</li>
+            <li><span className="text-gray-500">Low:</span> ₹{format(priceData.low)}</li>
+            <li><span className="text-gray-500">Close:</span> ₹{format(priceData.close)}</li>
+            <li><span className="text-gray-500">52-Week High:</span> ₹{format(priceData.week52High)}</li>
+            <li><span className="text-gray-500">52-Week Low:</span> ₹{format(priceData.week52Low)}</li>
           </ul>
         </div>
       )}

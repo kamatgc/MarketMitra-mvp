@@ -2,7 +2,6 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // Example: read text from query or body
     const { text } = req.body || {}
 
     if (!text || typeof text !== 'string') {
@@ -10,9 +9,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // Simple placeholder summary logic for MVP
-    const summary = text.length > 100
-      ? text.slice(0, 100) + '...'
-      : text
+    const summary =
+      text.length > 100 ? text.slice(0, 100) + '...' : text
 
     res.status(200).json({ summary })
   } catch (err) {
